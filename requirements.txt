@@ -1,0 +1,25 @@
+# Core Dependencies
+streamlit>=1.39.0
+supabase>=2.9.1
+openai>=1.57.0
+
+# Document Processing (Docling)
+docling>=2.11.0
+docling-core[chunking]>=1.25.2
+transformers>=4.47.1
+numpy<2.0
+
+# Development and Testing
+pytest>=8.3.4
+pytest-asyncio>=0.24.0
+pytest-cov>=6.0.0
+python-dotenv>=1.0.1
+
+# Data and Utilities
+pydantic>=2.10.4
+pydantic-settings>=2.7.0
+python-dateutil>=2.9.0
+typing-extensions>=4.12.2
+
+# Optional: Performance and monitoring
+psutil>=6.1.0
