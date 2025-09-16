@@ -46,40 +46,34 @@ class ChatMessage(BaseModel):
 class ConversionResult(BaseModel):
     """Result from document conversion process."""
     
+    model_config = ConfigDict(from_attributes=True)
+    
     doc_id: UUID
     filename: str
     chunks_created: int
     conversion_status: str
     error_message: Optional[str] = None
-    
-    class Config:
-        """Pydantic configuration."""
-        from_attributes = True
 
 
 class QueryResult(BaseModel):
     """Result from vector search query."""
     
+    model_config = ConfigDict(from_attributes=True)
+    
     chunks: List[VectorChunk]
     query_embedding: List[float]
     similarity_scores: List[float]
-    
-    class Config:
-        """Pydantic configuration."""
-        from_attributes = True
 
 
 class ChatResponse(BaseModel):
     """Response from chat generation."""
     
+    model_config = ConfigDict(from_attributes=True)
+    
     response: str
     sources: List[VectorChunk]
     session_id: str
     turn_index: int
-    
-    class Config:
-        """Pydantic configuration."""
-        from_attributes = True
 
 
 # Type aliases for common data structures
