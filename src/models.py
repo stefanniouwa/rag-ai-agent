@@ -4,23 +4,23 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Document(BaseModel):
     """Document metadata model."""
     
+    model_config = ConfigDict(from_attributes=True)
+    
     id: UUID
     filename: str
     uploaded_at: datetime
-    
-    class Config:
-        """Pydantic configuration."""
-        from_attributes = True
 
 
 class VectorChunk(BaseModel):
     """Vector chunk model with embedding and metadata."""
+    
+    model_config = ConfigDict(from_attributes=True)
     
     id: UUID
     doc_id: UUID
@@ -28,14 +28,12 @@ class VectorChunk(BaseModel):
     content: str
     embedding: Optional[List[float]] = None
     metadata: Optional[Dict[str, Any]] = None
-    
-    class Config:
-        """Pydantic configuration."""
-        from_attributes = True
 
 
 class ChatMessage(BaseModel):
     """Chat message model for conversation history."""
+    
+    model_config = ConfigDict(from_attributes=True)
     
     id: Optional[UUID] = None
     session_id: str
@@ -43,10 +41,6 @@ class ChatMessage(BaseModel):
     user_message: str
     ai_response: str
     created_at: Optional[datetime] = None
-    
-    class Config:
-        """Pydantic configuration."""
-        from_attributes = True
 
 
 class ConversionResult(BaseModel):

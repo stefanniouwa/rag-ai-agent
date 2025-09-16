@@ -272,19 +272,210 @@ class TestDatabaseIntegration:
     run with appropriate test database configuration.
     """
     
-    @pytest.mark.skip(reason="Requires live database connection")
+    @pytest.mark.integration
     def test_real_database_connection(self):
         """Test actual database connection (requires real credentials)."""
-        # This would test actual database connection
-        # Skip by default to avoid requiring real database setup
-        pass
+        from src.db import SupabaseClient
+        
+        client = SupabaseClient()
+        
+        # Test connection
+        assert client.test_connection() == True
+        
+        # Test basic table access
+        result = client.client.table("documents").select("*").limit(1).execute()
+        assert result is not None
     
-    @pytest.mark.skip(reason="Requires live database connection")
+    @pytest.mark.integration 
     def test_full_document_workflow(self):
         """Test complete document workflow with real database."""
-        # This would test:
+        from src.db import SupabaseClient
+        from src.models import VectorChunk
+        import uuid
+        
+        client = SupabaseClient()
+        
         # 1. Create document
-        # 2. Insert vectors
-        # 3. Search vectors
-        # 4. Delete document (cascade)
-        pass
+        doc = client.create_document("test_integration_doc.pdf")
+        assert doc is not None
+        assert doc.filename == "test_integration_doc.pdf"
+        
+        try:
+            # 2. Insert vectors
+            vector_data = VectorChunk(
+                id=uuid.uuid4(),  # Will be ignored by database
+                doc_id=doc.id,
+                chunk_id=0,
+                content="This is test content for integration testing",
+                embedding=[0.1] * 1536,  # Mock embedding of correct dimension
+                metadata={"test": True}
+            )
+            success = client.insert_vectors([vector_data])
+            assert success == True
+            
+            # 3. Search vectors
+            search_results = client.vector_search([0.1] * 1536, top_k=5)
+            assert len(search_results) >= 1
+            found_our_vector = any(v.content == "This is test content for integration testing" 
+                                 for v in search_results)
+            assert found_our_vector
+            
+            # 4. Get document vectors
+            doc_vectors = client.get_document_vectors(doc.id)
+            assert len(doc_vectors) >= 1
+            assert doc_vectors[0].content == "This is test content for integration testing"
+            
+        finally:
+            # Clean up: Delete document (should cascade to vectors)
+            success = client.delete_document(doc.id)
+            assert success == True
+
+
+class TestErrorHandling:
+    """Test error handling in database operations."""
+
+    def test_create_document_no_data_returned(self, mock_supabase_client):
+        """Test create_document when no data is returned."""
+        # Mock empty result
+        mock_response = Mock()
+        mock_response.data = []
+        mock_supabase_client.table.return_value.insert.return_value.execute.return_value = mock_response
+        
+        client = SupabaseClient()
+        client.client = mock_supabase_client  # Replace the real client with mock
+        
+        with pytest.raises(ValueError, match="Failed to create document: no data returned"):
+            client.create_document("test.pdf")
+
+    def test_store_chat_message_no_data_returned(self, mock_supabase_client):
+        """Test store_chat_message when no data is returned."""
+        from src.models import ChatMessage
+        
+        # Mock empty result  
+        mock_response = Mock()
+        mock_response.data = []
+        mock_supabase_client.table.return_value.insert.return_value.execute.return_value = mock_response
+        
+        client = SupabaseClient()
+        client.client = mock_supabase_client  # Replace the real client with mock
+        
+        message = ChatMessage(
+            session_id="test",
+            turn_index=0,
+            user_message="test user",
+            ai_response="test ai"
+        )
+        
+        with pytest.raises(ValueError, match="Failed to store chat message: no data returned"):
+            client.store_chat_message(message)
+
+    def test_create_document_exception(self, mock_supabase_client):
+        """Test create_document exception handling."""
+        mock_supabase_client.table.return_value.insert.return_value.execute.side_effect = Exception("Database error")
+        
+        client = SupabaseClient()
+        
+        with pytest.raises(Exception, match="Database error"):
+            client.create_document("test.pdf")
+
+    def test_get_document_exception(self, mock_supabase_client):
+        """Test get_document exception handling."""
+        from uuid import uuid4
+        mock_supabase_client.table.return_value.select.return_value.eq.return_value.execute.side_effect = Exception("Database error")
+        
+        client = SupabaseClient()
+        
+        with pytest.raises(Exception, match="Database error"):
+            client.get_document(uuid4())
+
+    def test_list_documents_exception(self, mock_supabase_client):
+        """Test list_documents exception handling."""
+        mock_supabase_client.table.return_value.select.return_value.order.return_value.execute.side_effect = Exception("Database error")
+        
+        client = SupabaseClient()
+        
+        with pytest.raises(Exception, match="Database error"):
+            client.list_documents()
+
+    def test_delete_document_exception(self, mock_supabase_client):
+        """Test delete_document exception handling."""
+        from uuid import uuid4
+        mock_supabase_client.table.return_value.delete.return_value.eq.return_value.execute.side_effect = Exception("Database error")
+        
+        client = SupabaseClient()
+        
+        with pytest.raises(Exception, match="Database error"):
+            client.delete_document(uuid4())
+
+    def test_insert_vectors_exception(self, mock_supabase_client):
+        """Test insert_vectors exception handling."""
+        from src.models import VectorChunk
+        from uuid import uuid4
+        
+        mock_supabase_client.table.return_value.insert.return_value.execute.side_effect = Exception("Database error")
+        
+        client = SupabaseClient()
+        vector = VectorChunk(
+            id=uuid4(),
+            doc_id=uuid4(),
+            chunk_id=0,
+            content="test",
+            embedding=[0.1] * 1536
+        )
+        
+        with pytest.raises(Exception, match="Database error"):
+            client.insert_vectors([vector])
+
+    def test_vector_search_exception(self, mock_supabase_client):
+        """Test vector_search exception handling."""
+        mock_supabase_client.rpc.side_effect = Exception("Database error")
+        
+        client = SupabaseClient()
+        
+        with pytest.raises(Exception, match="Database error"):
+            client.vector_search([0.1] * 1536)
+
+    def test_get_document_vectors_exception(self, mock_supabase_client):
+        """Test get_document_vectors exception handling."""
+        from uuid import uuid4
+        mock_supabase_client.table.return_value.select.return_value.eq.return_value.execute.side_effect = Exception("Database error")
+        
+        client = SupabaseClient()
+        
+        with pytest.raises(Exception, match="Database error"):
+            client.get_document_vectors(uuid4())
+
+    def test_store_chat_message_exception(self, mock_supabase_client):
+        """Test store_chat_message exception handling."""
+        from src.models import ChatMessage
+        
+        mock_supabase_client.table.return_value.insert.return_value.execute.side_effect = Exception("Database error")
+        
+        client = SupabaseClient()
+        message = ChatMessage(
+            session_id="test",
+            turn_index=0,
+            user_message="test user",
+            ai_response="test ai"
+        )
+        
+        with pytest.raises(Exception, match="Database error"):
+            client.store_chat_message(message)
+
+    def test_get_chat_history_exception(self, mock_supabase_client):
+        """Test get_chat_history exception handling."""
+        mock_supabase_client.table.return_value.select.return_value.eq.return_value.order.return_value.execute.side_effect = Exception("Database error")
+        
+        client = SupabaseClient()
+        
+        with pytest.raises(Exception, match="Database error"):
+            client.get_chat_history("test_session")
+
+    def test_clear_chat_history_exception(self, mock_supabase_client):
+        """Test clear_chat_history exception handling."""
+        mock_supabase_client.table.return_value.delete.return_value.eq.return_value.execute.side_effect = Exception("Database error")
+        
+        client = SupabaseClient()
+        
+        with pytest.raises(Exception, match="Database error"):
+            client.clear_chat_history("test_session")
