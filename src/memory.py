@@ -43,7 +43,7 @@ class ChatMemoryManager:
         
         Args:
             session_id: Unique session identifier
-            limit: Maximum number of messages to retrieve (defaults to memory_limit)
+            limit: Maximum number of turns to retrieve (defaults to memory_limit)
             
         Returns:
             List of ChatMessage objects in chronological order
@@ -59,7 +59,7 @@ class ChatMemoryManager:
         try:
             response = self.supabase_client.client.table("chat_histories").select("*").eq(
                 "session_id", session_id
-            ).order("created_at", desc=True).limit(limit * 2).execute()  # Get more to account for user/ai pairs
+            ).order("turn_index", desc=True).limit(limit).execute()
             
             if not response.data:
                 logger.info(f"No chat history found for session {session_id[:8]}...")
@@ -72,9 +72,9 @@ class ChatMemoryManager:
                     message = ChatMessage(
                         id=record['id'],
                         session_id=record['session_id'],
-                        role=record['role'],
-                        content=record['content'],
-                        metadata=record.get('metadata', {}),
+                        turn_index=record['turn_index'],
+                        user_message=record['user_message'],
+                        ai_response=record['ai_response'],
                         created_at=record['created_at']
                     )
                     messages.append(message)
@@ -82,11 +82,7 @@ class ChatMemoryManager:
                     logger.warning(f"Failed to parse chat message: {e}")
                     continue
             
-            # Ensure we don't exceed the limit (count by message pairs)
-            if len(messages) > limit:
-                messages = messages[-limit:]
-            
-            logger.info(f"Retrieved {len(messages)} chat messages for session {session_id[:8]}...")
+            logger.info(f"Retrieved {len(messages)} chat turns for session {session_id[:8]}...")
             return messages
             
         except Exception as e:
@@ -114,150 +110,58 @@ class ChatMemoryManager:
         """
         logger.info(f"Storing conversation turn for session {session_id[:8]}...")
         
-        if metadata is None:
-            metadata = {}
-        
         try:
-            # Add timestamp to metadata
-            turn_timestamp = datetime.now(timezone.utc).isoformat()
-            metadata['turn_timestamp'] = turn_timestamp
+            # Get the next turn index
+            turn_index = await self._get_next_turn_index(session_id)
             
-            # Store user message
-            user_record = {
+            # Create the conversation turn record
+            turn_record = {
                 'id': str(uuid.uuid4()),
                 'session_id': session_id,
-                'role': 'user',
-                'content': user_message,
-                'metadata': metadata,
-                'created_at': turn_timestamp
+                'turn_index': turn_index,
+                'user_message': user_message,
+                'ai_response': ai_response,
+                'created_at': datetime.now(timezone.utc).isoformat()
             }
             
-            # Store AI response
-            ai_record = {
-                'id': str(uuid.uuid4()),
-                'session_id': session_id,
-                'role': 'assistant',
-                'content': ai_response,
-                'metadata': metadata,
-                'created_at': turn_timestamp
-            }
+            # Insert the conversation turn
+            response = self.supabase_client.client.table("chat_histories").insert(turn_record).execute()
             
-            # Insert both messages
-            response = self.supabase_client.client.table("chat_histories").insert([
-                user_record, ai_record
-            ]).execute()
+            if not response.data:
+                raise Exception("Failed to store conversation turn")
             
-            if not response.data or len(response.data) != 2:
-                raise Exception("Failed to store both messages")
+            logger.info(f"Successfully stored conversation turn {turn_index} for session {session_id[:8]}...")
             
-            logger.info(f"Successfully stored conversation turn for session {session_id[:8]}...")
-            
-            # Clean up old messages if we exceed the memory limit
+            # Clean up old turns if we exceed the memory limit
             await self._cleanup_old_messages(session_id)
             
         except Exception as e:
             logger.error(f"Failed to store conversation turn: {e}")
             raise
     
-    async def store_user_message(
-        self,
-        session_id: str,
-        content: str,
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> str:
+    async def _get_next_turn_index(self, session_id: str) -> int:
         """
-        Store a user message and return its ID.
+        Get the next turn index for a session.
         
         Args:
-            session_id: Unique session identifier
-            content: Message content
-            metadata: Additional metadata
+            session_id: Session to get next turn index for
             
         Returns:
-            The ID of the stored message
-            
-        Raises:
-            Exception: If storage fails
+            Next turn index (0-based)
         """
-        logger.info(f"Storing user message for session {session_id[:8]}...")
-        
-        if metadata is None:
-            metadata = {}
-        
         try:
-            message_id = str(uuid.uuid4())
-            record = {
-                'id': message_id,
-                'session_id': session_id,
-                'role': 'user',
-                'content': content,
-                'metadata': metadata,
-                'created_at': datetime.now(timezone.utc).isoformat()
-            }
+            response = self.supabase_client.client.table("chat_histories").select("turn_index").eq(
+                "session_id", session_id
+            ).order("turn_index", desc=True).limit(1).execute()
             
-            response = self.supabase_client.client.table("chat_histories").insert(record).execute()
-            
-            if not response.data:
-                raise Exception("Failed to store user message")
-            
-            logger.info(f"Successfully stored user message {message_id[:8]}...")
-            return message_id
-            
+            if response.data:
+                return response.data[0]['turn_index'] + 1
+            else:
+                return 0  # First turn
+                
         except Exception as e:
-            logger.error(f"Failed to store user message: {e}")
-            raise
-    
-    async def store_ai_response(
-        self,
-        session_id: str,
-        content: str,
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> str:
-        """
-        Store an AI response and return its ID.
-        
-        Args:
-            session_id: Unique session identifier
-            content: Response content
-            metadata: Additional metadata (e.g., citations, model info)
-            
-        Returns:
-            The ID of the stored response
-            
-        Raises:
-            Exception: If storage fails
-        """
-        logger.info(f"Storing AI response for session {session_id[:8]}...")
-        
-        if metadata is None:
-            metadata = {}
-        
-        try:
-            response_id = str(uuid.uuid4())
-            record = {
-                'id': response_id,
-                'session_id': session_id,
-                'role': 'assistant',
-                'content': content,
-                'metadata': metadata,
-                'created_at': datetime.now(timezone.utc).isoformat()
-            }
-            
-            response = self.supabase_client.client.table("chat_histories").insert(record).execute()
-            
-            if not response.data:
-                raise Exception("Failed to store AI response")
-            
-            logger.info(f"Successfully stored AI response {response_id[:8]}...")
-            
-            # Clean up old messages after storing new response
-            await self._cleanup_old_messages(session_id)
-            
-            return response_id
-            
-        except Exception as e:
-            logger.error(f"Failed to store AI response: {e}")
-            raise
+            logger.warning(f"Failed to get next turn index, using 0: {e}")
+            return 0
     
     async def clear_session_memory(self, session_id: str) -> None:
         """
@@ -284,34 +188,33 @@ class ChatMemoryManager:
     
     async def _cleanup_old_messages(self, session_id: str) -> None:
         """
-        Clean up old messages beyond the memory limit.
+        Clean up old conversation turns beyond the memory limit.
         
         Args:
             session_id: Session to clean up
         """
         try:
-            # Get all messages for the session
-            response = self.supabase_client.client.table("chat_histories").select("id, created_at").eq(
+            # Get all turns for the session
+            response = self.supabase_client.client.table("chat_histories").select("id, turn_index").eq(
                 "session_id", session_id
-            ).order("created_at", desc=True).execute()
+            ).order("turn_index", desc=True).execute()
             
-            if not response.data or len(response.data) <= self.memory_limit * 2:
+            if not response.data or len(response.data) <= self.memory_limit:
                 return  # No cleanup needed
             
-            # Keep only the most recent messages (memory_limit * 2 for user/ai pairs)
-            messages_to_keep = self.memory_limit * 2
-            old_messages = response.data[messages_to_keep:]
+            # Keep only the most recent turns
+            old_turns = response.data[self.memory_limit:]
             
-            if old_messages:
-                old_ids = [msg['id'] for msg in old_messages]
+            if old_turns:
+                old_ids = [turn['id'] for turn in old_turns]
                 self.supabase_client.client.table("chat_histories").delete().in_(
                     "id", old_ids
                 ).execute()
                 
-                logger.info(f"Cleaned up {len(old_ids)} old messages for session {session_id[:8]}...")
+                logger.info(f"Cleaned up {len(old_ids)} old turns for session {session_id[:8]}...")
                 
         except Exception as e:
-            logger.warning(f"Failed to cleanup old messages: {e}")
+            logger.warning(f"Failed to cleanup old turns: {e}")
 
 
 # Global memory manager instance

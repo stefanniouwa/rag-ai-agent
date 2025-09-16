@@ -23,10 +23,10 @@ class VectorChunk(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     
     id: UUID
-    document_id: UUID
-    chunk_index: int
+    doc_id: UUID
+    chunk_id: int
     content: str
-    embeddings: Optional[List[float]] = None
+    embedding: Optional[List[float]] = None
     metadata: Optional[Dict[str, Any]] = None
 
 
@@ -37,9 +37,9 @@ class ChatMessage(BaseModel):
     
     id: Optional[UUID] = None
     session_id: str
-    role: str
-    content: str
-    metadata: Optional[Dict[str, Any]] = None
+    turn_index: int
+    user_message: str
+    ai_response: str
     created_at: Optional[datetime] = None
 
 

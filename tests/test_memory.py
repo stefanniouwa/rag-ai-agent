@@ -57,17 +57,17 @@ class TestChatMemoryManager:
             {
                 'id': str(uuid.uuid4()),
                 'session_id': session_id,
-                'role': 'assistant',
-                'content': 'AI response',
-                'metadata': {},
+                'turn_index': 1,
+                'user_message': 'What is AI?',
+                'ai_response': 'AI stands for Artificial Intelligence.',
                 'created_at': '2024-01-02T00:00:00Z'
             },
             {
                 'id': str(uuid.uuid4()),
                 'session_id': session_id,
-                'role': 'user',
-                'content': 'User question',
-                'metadata': {},
+                'turn_index': 0,
+                'user_message': 'Hello',
+                'ai_response': 'Hello! How can I help you?',
                 'created_at': '2024-01-01T00:00:00Z'
             }
         ]
@@ -83,14 +83,16 @@ class TestChatMemoryManager:
         result = await memory_manager.get_chat_memory(session_id, limit=5)
 
         assert len(result) == 2
-        assert all(isinstance(msg, ChatMessage) for msg in result)
-        assert result[0].content == 'User question'  # Chronological order
-        assert result[1].content == 'AI response'
+        assert all(isinstance(turn, ChatMessage) for turn in result)
+        assert result[0].user_message == 'Hello'  # Chronological order
+        assert result[0].ai_response == 'Hello! How can I help you?'
+        assert result[1].user_message == 'What is AI?'
+        assert result[1].ai_response == 'AI stands for Artificial Intelligence.'
         
         # Verify database call
         mock_supabase_client.client.table.assert_called_with("chat_histories")
         select_mock.eq.assert_called_with("session_id", session_id)
-        order_mock.limit.assert_called_with(10)  # limit * 2
+        order_mock.limit.assert_called_with(5)  # limit turns
 
     @pytest.mark.asyncio
     async def test_get_chat_memory_no_history(self, memory_manager, mock_supabase_client):
@@ -116,13 +118,14 @@ class TestChatMemoryManager:
         
         # Mock successful insert response
         mock_response = Mock()
-        mock_response.data = [{'id': 'user-msg'}, {'id': 'ai-msg'}]
+        mock_response.data = [{'id': 'turn-123'}]
         
         table_mock = mock_supabase_client.client.table.return_value
         table_mock.insert.return_value.execute.return_value = mock_response
         
-        # Mock cleanup method
+        # Mock cleanup method and turn index helper
         memory_manager._cleanup_old_messages = AsyncMock()
+        memory_manager._get_next_turn_index = AsyncMock(return_value=0)
 
         await memory_manager.store_chat_turn(session_id, user_message, ai_response)
 
@@ -130,11 +133,11 @@ class TestChatMemoryManager:
         table_mock.insert.assert_called_once()
         insert_args = table_mock.insert.call_args[0][0]
         
-        assert len(insert_args) == 2  # User message + AI response
-        assert insert_args[0]['role'] == 'user'
-        assert insert_args[0]['content'] == user_message
-        assert insert_args[1]['role'] == 'assistant'
-        assert insert_args[1]['content'] == ai_response
+        # Verify turn record structure
+        assert insert_args['session_id'] == session_id
+        assert insert_args['turn_index'] == 0
+        assert insert_args['user_message'] == user_message
+        assert insert_args['ai_response'] == ai_response
         
         # Verify cleanup was called
         memory_manager._cleanup_old_messages.assert_called_once_with(session_id)
@@ -150,59 +153,13 @@ class TestChatMemoryManager:
         
         table_mock = mock_supabase_client.client.table.return_value
         table_mock.insert.return_value.execute.return_value = mock_response
+        
+        # Mock turn index helper
+        memory_manager._get_next_turn_index = AsyncMock(return_value=0)
 
-        with pytest.raises(Exception, match="Failed to store both messages"):
+        with pytest.raises(Exception, match="Failed to store conversation turn"):
             await memory_manager.store_chat_turn(session_id, "user msg", "ai msg")
 
-    @pytest.mark.asyncio
-    async def test_store_user_message_success(self, memory_manager, mock_supabase_client):
-        """Test successful user message storage."""
-        session_id = "test-session-123"
-        content = "What is machine learning?"
-        metadata = {"timestamp": "2024-01-01"}
-        
-        # Mock successful insert
-        mock_response = Mock()
-        mock_response.data = [{'id': 'user-msg-123'}]
-        
-        table_mock = mock_supabase_client.client.table.return_value
-        table_mock.insert.return_value.execute.return_value = mock_response
-
-        result = await memory_manager.store_user_message(session_id, content, metadata)
-
-        assert isinstance(result, str)  # Returns message ID
-        
-        # Verify insert call
-        table_mock.insert.assert_called_once()
-        insert_args = table_mock.insert.call_args[0][0]
-        assert insert_args['role'] == 'user'
-        assert insert_args['content'] == content
-        assert insert_args['metadata'] == metadata
-
-    @pytest.mark.asyncio
-    async def test_store_ai_response_success(self, memory_manager, mock_supabase_client):
-        """Test successful AI response storage."""
-        session_id = "test-session-123"
-        content = "Machine learning is a subset of AI."
-        metadata = {"model": "gpt-4", "citations": ["source1"]}
-        
-        # Mock successful insert
-        mock_response = Mock()
-        mock_response.data = [{'id': 'ai-msg-123'}]
-        
-        table_mock = mock_supabase_client.client.table.return_value
-        table_mock.insert.return_value.execute.return_value = mock_response
-        
-        # Mock cleanup
-        memory_manager._cleanup_old_messages = AsyncMock()
-
-        result = await memory_manager.store_ai_response(session_id, content, metadata)
-
-        assert isinstance(result, str)  # Returns message ID
-        
-        # Verify insert and cleanup
-        table_mock.insert.assert_called_once()
-        memory_manager._cleanup_old_messages.assert_called_once_with(session_id)
 
     @pytest.mark.asyncio
     async def test_clear_session_memory_success(self, memory_manager, mock_supabase_client):
@@ -222,18 +179,18 @@ class TestChatMemoryManager:
 
     @pytest.mark.asyncio
     async def test_cleanup_old_messages_success(self, memory_manager, mock_supabase_client):
-        """Test successful cleanup of old messages."""
+        """Test successful cleanup of old turns."""
         session_id = "test-session-123"
-        memory_manager.memory_limit = 2  # Keep only 2 turns (4 messages)
+        memory_manager.memory_limit = 2  # Keep only 2 turns
         
-        # Mock messages beyond limit
+        # Mock turns beyond limit
         mock_response = Mock()
         mock_response.data = [
-            {'id': 'msg-5', 'created_at': '2024-01-05T00:00:00Z'},
-            {'id': 'msg-4', 'created_at': '2024-01-04T00:00:00Z'},
-            {'id': 'msg-3', 'created_at': '2024-01-03T00:00:00Z'},
-            {'id': 'msg-2', 'created_at': '2024-01-02T00:00:00Z'},
-            {'id': 'msg-1', 'created_at': '2024-01-01T00:00:00Z'},  # Should be deleted
+            {'id': 'turn-4', 'turn_index': 4},
+            {'id': 'turn-3', 'turn_index': 3},
+            {'id': 'turn-2', 'turn_index': 2},  # Should be deleted
+            {'id': 'turn-1', 'turn_index': 1},  # Should be deleted
+            {'id': 'turn-0', 'turn_index': 0},  # Should be deleted
         ]
         
         table_mock = mock_supabase_client.client.table.return_value
@@ -251,8 +208,8 @@ class TestChatMemoryManager:
 
         await memory_manager._cleanup_old_messages(session_id)
 
-        # Verify cleanup deleted old message
-        delete_mock.in_.assert_called_once_with("id", ['msg-1'])
+        # Verify cleanup deleted old turns
+        delete_mock.in_.assert_called_once_with("id", ['turn-2', 'turn-1', 'turn-0'])
 
     @pytest.mark.asyncio
     async def test_cleanup_old_messages_no_cleanup_needed(self, memory_manager, mock_supabase_client):
@@ -260,11 +217,11 @@ class TestChatMemoryManager:
         session_id = "test-session-123"
         memory_manager.memory_limit = 5
         
-        # Mock fewer messages than limit
+        # Mock fewer turns than limit
         mock_response = Mock()
         mock_response.data = [
-            {'id': 'msg-2', 'created_at': '2024-01-02T00:00:00Z'},
-            {'id': 'msg-1', 'created_at': '2024-01-01T00:00:00Z'},
+            {'id': 'turn-1', 'turn_index': 1},
+            {'id': 'turn-0', 'turn_index': 0},
         ]
         
         table_mock = mock_supabase_client.client.table.return_value

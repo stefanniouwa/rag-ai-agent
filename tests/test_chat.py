@@ -66,19 +66,19 @@ class TestChatOrchestrator:
         return [
             VectorChunk(
                 id=uuid.uuid4(),
-                document_id=uuid.uuid4(),
-                chunk_index=0,
+                doc_id=uuid.uuid4(),
+                chunk_id=0,
                 content='Machine learning is a subset of artificial intelligence.',
                 metadata={'filename': 'ml_guide.pdf', 'similarity_score': 0.85},
-                embeddings=[0.1] * 1536
+                embedding=[0.1] * 1536
             ),
             VectorChunk(
                 id=uuid.uuid4(),
-                document_id=uuid.uuid4(),
-                chunk_index=1,
+                doc_id=uuid.uuid4(),
+                chunk_id=1,
                 content='Deep learning uses neural networks with multiple layers.',
                 metadata={'filename': 'ml_guide.pdf', 'similarity_score': 0.78},
-                embeddings=[0.2] * 1536
+                embedding=[0.2] * 1536
             )
         ]
 
@@ -90,16 +90,16 @@ class TestChatOrchestrator:
             ChatMessage(
                 id=uuid.uuid4(),
                 session_id='session-123',
-                role='user',
-                content='What is AI?',
-                metadata={}
+                turn_index=0,
+                user_message='What is AI?',
+                ai_response='AI stands for Artificial Intelligence.'
             ),
             ChatMessage(
                 id=uuid.uuid4(),
                 session_id='session-123',
-                role='assistant',
-                content='AI stands for Artificial Intelligence.',
-                metadata={}
+                turn_index=1,
+                user_message='How does machine learning work?',
+                ai_response='Machine learning uses algorithms to learn from data.'
             )
         ]
 

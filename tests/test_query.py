@@ -100,20 +100,20 @@ class TestQueryProcessor:
         mock_response.data = [
             {
                 'id': str(uuid.uuid4()),
-                'document_id': str(uuid.uuid4()),
-                'chunk_index': 0,
+                'doc_id': str(uuid.uuid4()),
+                'chunk_id': 0,
                 'content': 'Test content 1',
                 'metadata': {'filename': 'test.pdf'},
-                'embeddings': [0.1] * 1536,
+                'embedding': [0.1] * 1536,
                 'similarity': 0.85
             },
             {
                 'id': str(uuid.uuid4()),
-                'document_id': str(uuid.uuid4()),
-                'chunk_index': 1,
+                'doc_id': str(uuid.uuid4()),
+                'chunk_id': 1,
                 'content': 'Test content 2',
                 'metadata': {'filename': 'test.pdf'},
-                'embeddings': [0.2] * 1536,
+                'embedding': [0.2] * 1536,
                 'similarity': 0.75
             }
         ]
@@ -171,11 +171,11 @@ class TestQueryProcessor:
         mock_chunks = [
             VectorChunk(
                 id=uuid.uuid4(),
-                document_id=uuid.uuid4(),
-                chunk_index=0,
+                doc_id=uuid.uuid4(),
+                chunk_id=0,
                 content='Test content',
                 metadata={'filename': 'test.pdf', 'similarity_score': 0.85},
-                embeddings=mock_embedding
+                embedding=mock_embedding
             )
         ]
         query_processor.vector_search = AsyncMock(return_value=mock_chunks)

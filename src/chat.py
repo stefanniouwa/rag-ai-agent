@@ -166,8 +166,8 @@ class ChatOrchestrator:
         
         context_parts = []
         for i, chunk in enumerate(chunks, 1):
-            # Get document filename from metadata or use document_id
-            source = chunk.metadata.get('filename', f"Document {chunk.document_id}")
+            # Get document filename from metadata or use doc_id
+            source = chunk.metadata.get('filename', f"Document {chunk.doc_id}")
             similarity = chunk.metadata.get('similarity_score', 0.0)
             
             context_part = f"[Source {i}: {source} (Similarity: {similarity:.3f})]\n{chunk.content}\n"
@@ -198,11 +198,17 @@ class ChatOrchestrator:
         system_prompt = self._get_system_prompt()
         messages.append({"role": "system", "content": system_prompt})
         
-        # Add chat history (limited to recent messages)
-        for msg in chat_history[-10:]:  # Keep last 10 messages for context
+        # Add chat history (limited to recent turns)
+        for turn in chat_history[-5:]:  # Keep last 5 turns for context
+            # Add user message
             messages.append({
-                "role": msg.role,
-                "content": msg.content
+                "role": "user",
+                "content": turn.user_message
+            })
+            # Add AI response
+            messages.append({
+                "role": "assistant", 
+                "content": turn.ai_response
             })
         
         # Add current query with context
@@ -269,10 +275,14 @@ Provide a helpful response that:
         messages.append({"role": "system", "content": fallback_prompt})
         
         # Add recent chat history for context
-        for msg in chat_history[-5:]:
+        for turn in chat_history[-3:]:  # Keep last 3 turns for context
             messages.append({
-                "role": msg.role,
-                "content": msg.content
+                "role": "user",
+                "content": turn.user_message
+            })
+            messages.append({
+                "role": "assistant",
+                "content": turn.ai_response
             })
         
         # Add current query
@@ -343,11 +353,11 @@ Provide a helpful response that:
         for i, chunk in enumerate(source_chunks, 1):
             source_info = {
                 'number': i,
-                'filename': chunk.metadata.get('filename', f"Document {chunk.document_id}"),
+                'filename': chunk.metadata.get('filename', f"Document {chunk.doc_id}"),
                 'content_preview': chunk.content[:200] + "..." if len(chunk.content) > 200 else chunk.content,
                 'similarity_score': chunk.metadata.get('similarity_score', 0.0),
-                'chunk_index': chunk.chunk_index,
-                'document_id': str(chunk.document_id)
+                'chunk_id': chunk.chunk_id,
+                'doc_id': str(chunk.doc_id)
             }
             sources.append(source_info)
         

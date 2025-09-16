@@ -115,11 +115,11 @@ class QueryProcessor:
                     
                     chunk = VectorChunk(
                         id=result['id'],
-                        document_id=result['document_id'],
-                        chunk_index=result['chunk_index'],
+                        doc_id=result['doc_id'],
+                        chunk_id=result['chunk_id'],
                         content=result['content'],
                         metadata=result.get('metadata', {}),
-                        embeddings=result['embeddings']
+                        embedding=result['embedding']
                     )
                     
                     # Add similarity score to metadata for reference
