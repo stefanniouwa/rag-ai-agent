@@ -39,6 +39,22 @@ class Settings(BaseSettings):
     supabase_timeout_seconds: int = Field(default=30, description="Supabase request timeout")
     openai_timeout_seconds: int = Field(default=60, description="OpenAI request timeout")
     max_concurrent_uploads: int = Field(default=3, description="Maximum concurrent uploads")
+    
+    # Streamlit Configuration
+    streamlit_theme: str = Field(default="light", description="Streamlit theme (light/dark)")
+    page_title: str = Field(default="RAG AI Agent", description="Application page title")
+    page_icon: str = Field(default="🤖", description="Application page icon")
+    session_timeout_hours: int = Field(default=24, description="Session timeout in hours")
+    auto_refresh_documents: bool = Field(default=True, description="Auto-refresh document list")
+    show_debug_info: bool = Field(default=False, description="Show debug information in UI")
+    enable_chat_export: bool = Field(default=True, description="Enable chat export functionality")
+    max_chat_history_display: int = Field(default=50, description="Maximum chat messages to display")
+    
+    # UI Configuration
+    sidebar_width: int = Field(default=300, description="Sidebar width in pixels")
+    chat_input_placeholder: str = Field(default="Ask me anything about your documents...", description="Chat input placeholder text")
+    upload_area_height: int = Field(default=200, description="Upload area height in pixels")
+    show_processing_details: bool = Field(default=True, description="Show detailed processing information")
 
 
 def get_settings() -> Settings:

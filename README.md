@@ -19,18 +19,38 @@ A single-user document intelligence webapp that allows users to upload personal 
 - **AI Services**: OpenAI APIs for embeddings and chat completion
 - **Testing**: Pytest with comprehensive unit and integration tests
 
-## Phase 1 Implementation Status ✅
+## Implementation Status ✅
 
-This repository currently includes the foundational data layer and infrastructure:
+This repository includes a complete RAG AI Agent with Streamlit frontend:
 
-### Completed Components
-
+### Phase 1: Data Layer and Infrastructure ✅
 - ✅ **Project Configuration**: `requirements.txt`, `pyproject.toml` with proper dependencies
 - ✅ **Environment Setup**: `.env.example` template with all required variables
 - ✅ **Database Schema**: Complete Supabase migration with pgvector support
 - ✅ **Data Models**: Pydantic models for Document, VectorChunk, ChatMessage
 - ✅ **Database Client**: Supabase client wrapper with CRUD operations
 - ✅ **Testing Framework**: Pytest configuration with fixtures and mock setup
+
+### Phase 2A: Document Ingestion Pipeline ✅
+- ✅ **Docling Integration**: Advanced document processing with semantic chunking
+- ✅ **Multi-format Support**: PDF, DOCX, TXT, HTML, MD file processing
+- ✅ **Embedding Generation**: OpenAI text-embedding-3-small integration
+- ✅ **Vector Storage**: Automatic embedding storage in Supabase pgvector
+- ✅ **Error Handling**: Comprehensive error handling and logging
+
+### Phase 2B: Query and Retrieval System ✅
+- ✅ **Vector Search**: Cosine similarity search with pgvector
+- ✅ **Chat Memory**: Conversation context management with rolling window
+- ✅ **LLM Integration**: GPT-4o-mini for response generation
+- ✅ **Citation Support**: Source attribution and metadata handling
+- ✅ **Async Processing**: Asynchronous query processing
+
+### Phase 2C: Streamlit Frontend ✅
+- ✅ **User Authentication**: Supabase Auth integration with session management
+- ✅ **File Upload Interface**: Multi-file drag-and-drop with progress tracking
+- ✅ **Document Management**: Document library with stats and delete functionality
+- ✅ **Chat Interface**: Interactive chat with message history and citations
+- ✅ **Responsive Design**: Modern UI with custom styling and theming
 
 ### Database Schema
 
@@ -85,7 +105,27 @@ python3 validate_phase1.py
 -- in your Supabase SQL editor
 ```
 
-### 4. Run Tests
+### 4. Run the Application
+
+```bash
+# Launch the Streamlit web application
+python run_streamlit.py
+
+# Or run directly with streamlit
+streamlit run streamlit_app.py
+
+# The app will open at http://localhost:8501
+```
+
+### 5. Using the Application
+
+1. **Sign Up/Sign In**: Create an account or sign in with existing credentials
+2. **Upload Documents**: Use the sidebar to upload PDF, DOCX, TXT, HTML, or MD files
+3. **Manage Documents**: View your document library and manage uploaded files
+4. **Ask Questions**: Use the chat interface to query your documents
+5. **View Sources**: See citations and source references for AI responses
+
+### 6. Run Tests
 
 ```bash
 # Run unit tests
@@ -96,26 +136,46 @@ pytest tests/
 
 # Run with coverage
 pytest tests/ --cov=src --cov-report=html
+
+# Run Streamlit component tests
+pytest tests/test_streamlit_app.py
 ```
 
 ## Project Structure
 
 ```
 rag_ai_agent/
-├── src/                    # Source code
-│   ├── config.py          # Configuration management
-│   ├── models.py          # Data models
-│   └── db.py              # Database client
-├── tests/                 # Test suite
-│   ├── conftest.py        # Test fixtures
-│   └── test_db.py         # Database tests
+├── streamlit_app.py       # Main Streamlit application
+├── run_streamlit.py       # Launch script
+├── src/                   # Source code
+│   ├── ui/               # Streamlit UI components
+│   │   ├── auth.py       # Authentication components
+│   │   ├── file_upload.py # File upload interface
+│   │   ├── document_manager.py # Document management
+│   │   └── chat_interface.py # Chat interface
+│   ├── config.py         # Configuration management
+│   ├── models.py         # Data models
+│   ├── db.py            # Database client
+│   ├── ingest.py        # Document ingestion pipeline
+│   ├── docling_converter.py # Document conversion
+│   ├── docling_chunker.py # Document chunking
+│   ├── embeddings.py    # Embedding generation
+│   ├── query.py         # Vector search and retrieval
+│   ├── chat.py          # LLM orchestration
+│   └── memory.py        # Chat memory management
+├── tests/               # Test suite
+│   ├── conftest.py      # Test fixtures
+│   ├── test_*.py        # Component tests
+│   └── test_streamlit_app.py # Streamlit tests
+├── .streamlit/          # Streamlit configuration
+│   └── config.toml      # App configuration
 ├── supabase/
-│   └── migrations/        # Database migrations
-├── docs/                  # Documentation
-│   └── features/          # Implementation plans
-├── requirements.txt       # Dependencies
-├── pyproject.toml        # Project configuration
-└── README.md             # This file
+│   └── migrations/      # Database migrations
+├── docs/                # Documentation
+│   └── features/        # Implementation plans
+├── requirements.txt     # Dependencies
+├── pyproject.toml      # Project configuration
+└── README.md           # This file
 ```
 
 ## Development

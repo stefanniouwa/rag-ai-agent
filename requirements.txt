@@ -23,3 +23,6 @@ typing-extensions>=4.12.2
 
 # Optional: Performance and monitoring
 psutil>=6.1.0
+
+# Streamlit Authentication
+streamlit-authenticator>=0.3.4

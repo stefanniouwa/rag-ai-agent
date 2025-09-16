@@ -1,0 +1,48 @@
+# Streamlit Configuration for RAG AI Agent
+
+[global]
+# Development settings
+developmentMode = false
+showWarningOnDirectExecution = false
+
+[server]
+# Server settings
+port = 8501
+headless = false
+runOnSave = true
+allowRunOnSave = true
+fileWatcherType = "auto"
+enableCORS = false
+enableXsrfProtection = true
+maxUploadSize = 200
+
+[browser]
+# Browser settings
+serverAddress = "localhost"
+gatherUsageStats = false
+serverPort = 8501
+
+[theme]
+# UI theme
+primaryColor = "#ff4b4b"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f0f2f6"
+textColor = "#262730"
+font = "sans serif"
+
+[runner]
+# Runner settings
+magicEnabled = true
+postScriptGC = true
+fastReruns = true
+enforceSerializableSessionState = false
+
+[client]
+# Client settings
+showErrorDetails = true
+toolbarMode = "auto"
+
+[logger]
+# Logging settings
+level = "info"
+messageFormat = "%(asctime)s %(message)s"
