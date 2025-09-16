@@ -48,7 +48,7 @@ class TestChatOrchestrator:
     @pytest.fixture
     def chat_orchestrator(self, mock_config, mock_query_processor, mock_memory_manager):
         """Create ChatOrchestrator instance with mocked dependencies."""
-        with patch('src.chat.get_config', return_value=mock_config), \
+        with patch('src.chat.get_settings', return_value=mock_config), \
              patch('src.chat.get_query_processor', return_value=mock_query_processor), \
              patch('src.chat.get_memory_manager', return_value=mock_memory_manager), \
              patch('src.chat.OpenAI') as mock_openai:
@@ -62,18 +62,19 @@ class TestChatOrchestrator:
     @pytest.fixture
     def sample_chunks(self):
         """Sample vector chunks for testing."""
+        import uuid
         return [
             VectorChunk(
-                id='chunk-1',
-                document_id='doc-1',
+                id=uuid.uuid4(),
+                document_id=uuid.uuid4(),
                 chunk_index=0,
                 content='Machine learning is a subset of artificial intelligence.',
                 metadata={'filename': 'ml_guide.pdf', 'similarity_score': 0.85},
                 embeddings=[0.1] * 1536
             ),
             VectorChunk(
-                id='chunk-2',
-                document_id='doc-1',
+                id=uuid.uuid4(),
+                document_id=uuid.uuid4(),
                 chunk_index=1,
                 content='Deep learning uses neural networks with multiple layers.',
                 metadata={'filename': 'ml_guide.pdf', 'similarity_score': 0.78},
@@ -84,16 +85,17 @@ class TestChatOrchestrator:
     @pytest.fixture
     def sample_chat_history(self):
         """Sample chat history for testing."""
+        import uuid
         return [
             ChatMessage(
-                id='msg-1',
+                id=uuid.uuid4(),
                 session_id='session-123',
                 role='user',
                 content='What is AI?',
                 metadata={}
             ),
             ChatMessage(
-                id='msg-2',
+                id=uuid.uuid4(),
                 session_id='session-123',
                 role='assistant',
                 content='AI stands for Artificial Intelligence.',

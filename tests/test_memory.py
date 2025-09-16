@@ -41,8 +41,8 @@ class TestChatMemoryManager:
     @pytest.fixture
     def memory_manager(self, mock_config, mock_supabase_client):
         """Create ChatMemoryManager instance with mocked dependencies."""
-        with patch('src.memory.get_config', return_value=mock_config), \
-             patch('src.memory.get_supabase_client', return_value=mock_supabase_client):
+        with patch('src.memory.get_settings', return_value=mock_config), \
+             patch('src.memory.get_db_client', return_value=mock_supabase_client):
             return ChatMemoryManager(memory_limit=5)
 
     @pytest.mark.asyncio
@@ -51,10 +51,11 @@ class TestChatMemoryManager:
         session_id = "test-session-123"
         
         # Mock database response
+        import uuid
         mock_response = Mock()
         mock_response.data = [
             {
-                'id': 'msg-2',
+                'id': str(uuid.uuid4()),
                 'session_id': session_id,
                 'role': 'assistant',
                 'content': 'AI response',
@@ -62,7 +63,7 @@ class TestChatMemoryManager:
                 'created_at': '2024-01-02T00:00:00Z'
             },
             {
-                'id': 'msg-1',
+                'id': str(uuid.uuid4()),
                 'session_id': session_id,
                 'role': 'user',
                 'content': 'User question',

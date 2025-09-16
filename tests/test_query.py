@@ -36,8 +36,8 @@ class TestQueryProcessor:
     @pytest.fixture
     def query_processor(self, mock_config, mock_supabase_client):
         """Create QueryProcessor instance with mocked dependencies."""
-        with patch('src.query.get_config', return_value=mock_config), \
-             patch('src.query.get_supabase_client', return_value=mock_supabase_client), \
+        with patch('src.query.get_settings', return_value=mock_config), \
+             patch('src.query.get_db_client', return_value=mock_supabase_client), \
              patch('src.query.OpenAI') as mock_openai:
             
             processor = QueryProcessor()
@@ -96,10 +96,11 @@ class TestQueryProcessor:
         """Test successful vector similarity search."""
         # Mock Supabase response
         mock_response = Mock()
+        import uuid
         mock_response.data = [
             {
-                'id': 'chunk-1',
-                'document_id': 'doc-1',
+                'id': str(uuid.uuid4()),
+                'document_id': str(uuid.uuid4()),
                 'chunk_index': 0,
                 'content': 'Test content 1',
                 'metadata': {'filename': 'test.pdf'},
@@ -107,8 +108,8 @@ class TestQueryProcessor:
                 'similarity': 0.85
             },
             {
-                'id': 'chunk-2',
-                'document_id': 'doc-1',
+                'id': str(uuid.uuid4()),
+                'document_id': str(uuid.uuid4()),
                 'chunk_index': 1,
                 'content': 'Test content 2',
                 'metadata': {'filename': 'test.pdf'},
@@ -166,10 +167,11 @@ class TestQueryProcessor:
         query_processor.embed_query = AsyncMock(return_value=mock_embedding)
 
         # Mock vector search
+        import uuid
         mock_chunks = [
             VectorChunk(
-                id='chunk-1',
-                document_id='doc-1',
+                id=uuid.uuid4(),
+                document_id=uuid.uuid4(),
                 chunk_index=0,
                 content='Test content',
                 metadata={'filename': 'test.pdf', 'similarity_score': 0.85},
