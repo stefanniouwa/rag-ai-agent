@@ -131,10 +131,9 @@ class TestQueryProcessor:
 
         # Verify RPC call
         query_processor.supabase_client.client.rpc.assert_called_once_with(
-            "search_similar_vectors",
+            "vector_search",
             {
                 "query_embedding": query_embedding,
-                "match_threshold": 0.7,
                 "match_count": 2
             }
         )

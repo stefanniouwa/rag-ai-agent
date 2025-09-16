@@ -94,10 +94,9 @@ class QueryProcessor:
         try:
             # Use the RPC function for vector similarity search
             response = self.supabase_client.client.rpc(
-                "search_similar_vectors",
+                "vector_search",
                 {
                     "query_embedding": query_embedding,
-                    "match_threshold": similarity_threshold,
                     "match_count": top_k
                 }
             ).execute()
@@ -106,12 +105,16 @@ class QueryProcessor:
                 logger.warning("No similar vectors found")
                 return []
             
-            # Convert results to VectorChunk objects
+            # Convert results to VectorChunk objects and filter by similarity threshold
             chunks = []
             for result in response.data:
                 try:
                     # Extract similarity score from the result
                     similarity = result.get('similarity', 0.0)
+                    
+                    # Skip chunks below similarity threshold
+                    if similarity < similarity_threshold:
+                        continue
                     
                     chunk = VectorChunk(
                         id=result['id'],
@@ -130,7 +133,7 @@ class QueryProcessor:
                     logger.warning(f"Failed to parse vector result: {e}")
                     continue
             
-            logger.info(f"Found {len(chunks)} relevant chunks")
+            logger.info(f"Found {len(chunks)} relevant chunks (threshold: {similarity_threshold})")
             return chunks
             
         except Exception as e:

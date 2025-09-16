@@ -77,8 +77,15 @@ class ChatOrchestrator:
             
             generated_text = response.choices[0].message.content
             
-            if not generated_text:
+            if not generated_text or not generated_text.strip():
                 raise Exception("Empty response from OpenAI")
+            
+            # Validate response structure
+            if len(generated_text) < 10:
+                logger.warning(f"Suspiciously short response: {generated_text}")
+            
+            if not any(keyword in generated_text.lower() for keyword in ['source', 'context', 'document', 'information']):
+                logger.warning("Response may not be properly grounded in context")
             
             logger.info(f"Generated response with {len(generated_text)} characters")
             return generated_text
@@ -198,17 +205,17 @@ class ChatOrchestrator:
         system_prompt = self._get_system_prompt()
         messages.append({"role": "system", "content": system_prompt})
         
-        # Add chat history (limited to recent turns)
-        for turn in chat_history[-5:]:  # Keep last 5 turns for context
+        # Add chat history (limited to recent messages)
+        for msg in chat_history[-10:]:  # Keep last 10 messages for context
             # Add user message
             messages.append({
                 "role": "user",
-                "content": turn.user_message
+                "content": msg.user_message
             })
-            # Add AI response
+            # Add assistant response
             messages.append({
                 "role": "assistant", 
-                "content": turn.ai_response
+                "content": msg.ai_response
             })
         
         # Add current query with context
@@ -275,14 +282,16 @@ Provide a helpful response that:
         messages.append({"role": "system", "content": fallback_prompt})
         
         # Add recent chat history for context
-        for turn in chat_history[-3:]:  # Keep last 3 turns for context
+        for msg in chat_history[-5:]:
+            # Add user message
             messages.append({
                 "role": "user",
-                "content": turn.user_message
+                "content": msg.user_message
             })
+            # Add assistant response
             messages.append({
                 "role": "assistant",
-                "content": turn.ai_response
+                "content": msg.ai_response
             })
         
         # Add current query
@@ -299,7 +308,12 @@ Provide a helpful response that:
                 temperature=0.3
             )
             
-            return response.choices[0].message.content or "I'm sorry, I couldn't generate a response."
+            fallback_response = response.choices[0].message.content
+            
+            if not fallback_response or not fallback_response.strip():
+                return "I'm sorry, I couldn't generate a response."
+            
+            return fallback_response
             
         except Exception as e:
             logger.error(f"Failed to generate fallback response: {e}")
